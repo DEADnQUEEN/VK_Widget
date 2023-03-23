@@ -81,7 +81,7 @@ namespace my_app_1
                     current += input_str[i];
                 else if (char.IsDigit(input_str[i - 1]))
                 {
-                    doubles.Add((Convert.ToInt32(string.Join("", current))) / 97);
+                    doubles.Add((Convert.ToInt32(string.Join("", current))));
                     current = "";
                 }
             }
@@ -255,7 +255,7 @@ namespace my_app_1
             {
                 for (int i = 0; i < qr.Children.Count; i++)
                     qr.Children.Clear();
-                Lb1.Content = ex.ToString();
+                Lb1.Content = ex.Message;
                 await Task.Delay(10000);
                 driver.Quit();
                 this.Close();
