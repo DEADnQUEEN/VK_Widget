@@ -57,98 +57,96 @@ namespace my_app_1
 
         public void Add_border(int i, int j, (int, int, int, int) rounder)
         {
-            Border new_border = new Border();
-            new_border.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
-            new_border.VerticalAlignment = System.Windows.VerticalAlignment.Top;
-            new_border.Width = 10;
-            new_border.Height = 10;
-            new_border.Margin = new System.Windows.Thickness(i * 10 + 30, j * 10 + 30, 0, 0);
-            new_border.CornerRadius = new System.Windows.CornerRadius(rounder.Item1, rounder.Item2, rounder.Item3, rounder.Item4);
-            new_border.Background = System.Windows.Media.Brushes.Black;
+            Border new_border = new Border
+            {
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
+                VerticalAlignment = System.Windows.VerticalAlignment.Top,
+                Width = 10,
+                Height = 10,
+                Margin = new System.Windows.Thickness(i * 10 + 30, j * 10 + 30, 0, 0),
+                CornerRadius = new System.Windows.CornerRadius(rounder.Item1, rounder.Item2, rounder.Item3, rounder.Item4),
+                Background = System.Windows.Media.Brushes.Black
+            };
 
             qr.Children.Add(new_border);
         }
 
-        public static List<double> Transform_parse(string input_str)
+        public static List<int> Transform_parse(string input_str)
         {
-            List<double> doubles = new List<double>();
-            List<double> current = new List<double>();
+            List<int> doubles = new List<int>();
+            string current = "";
             for (int i = 1; i < input_str.Length; i++)
             {
                 if (char.IsLetter(input_str[i]) == false && char.IsDigit(input_str[i]))
-                {
-                    current.Add(char.GetNumericValue(input_str[i]));
-                }
+                    current += input_str[i];
                 else if (char.IsDigit(input_str[i - 1]))
                 {
-                    doubles.Add(Convert.ToDouble(string.Join("", current)));
-                    current.Clear();
+                    doubles.Add((Convert.ToInt32(string.Join("", current))));
+                    current = "";
                 }
             }
 
-            if (current.Count != 0)
-            {
-                doubles.Add(Convert.ToDouble(string.Join("", current)));
-                current.Clear();
-            }
+            if (current.Length != 0)
+                doubles.Add((Convert.ToInt32(string.Join("", current))) / 97);
 
             return doubles;
         }
 
-        public static bool[,] Rectangle(bool[,] matrix, int start_x, int start_y, int len, bool to)
+        public static void Filler(bool[,] matrix, int start_i, int start_j, int size)
         {
-            for (int i = start_x; i < start_x + len; i++)
-                for (int j = start_y; j < start_y + len; j++)
-                {
-                    matrix[i, j] = to;
-                }
-
-            return matrix;
-        }
-        public static bool[,] Qr_Rectangles()
-        {
-            bool[,] matrix = new bool[25, 25];
-
-            matrix = Rectangle(matrix: matrix, start_x: 0, start_y: 0, len: 7, to: true);
-            matrix = Rectangle(matrix: matrix, start_x: 1, start_y: 1, len: 5, to: false);
-            matrix = Rectangle(matrix: matrix, start_x: 2, start_y: 2, len: 3, to: true);
-
-            matrix = Rectangle(matrix: matrix, start_x: matrix.GetLength(0) - 7, start_y: 0, len: 7, to: true);
-            matrix = Rectangle(matrix: matrix, start_x: matrix.GetLength(0) - 6, start_y: 1, len: 5, to: false);
-            matrix = Rectangle(matrix: matrix, start_x: matrix.GetLength(0) - 5, start_y: 2, len: 3, to: true);
-
-            matrix = Rectangle(matrix: matrix, start_x: 0, start_y: matrix.GetLength(0) - 7, len: 7, to: true);
-            matrix = Rectangle(matrix: matrix, start_x: 1, start_y: matrix.GetLength(0) - 6, len: 5, to: false);
-            matrix = Rectangle(matrix: matrix, start_x: 2, start_y: matrix.GetLength(0) - 5, len: 3, to: true);
-
-            return matrix;
+            for (int i = 0; i < size; i++)
+                for (int j = 0; j < size; j++)
+                    matrix[start_i + i, start_j + j] = true;
         }
 
-        async public void Qr_code_out(bool[,] input_matrix)
+        public static void Perimetr(bool[,] matrix, int start_i, int start_j, int size)
         {
-            bool[,] matrix = new bool[input_matrix.GetLength(0) + 2, input_matrix.GetLength(1) + 2];
+            for (int i = 0; i < size; i++)
+            {
+                matrix[start_i + i, start_j] = true;
+                matrix[start_i + i, start_j + size - 1] = true;
+            }
 
-            for (int i = 0; i <  input_matrix.GetLength(0); i++)
-                for (int j = 0; j <  input_matrix.GetLength(1); j++)
-                    matrix[i + 1, j + 1] = input_matrix[i, j];
+            for (int j = 0; j < size; j++)
+            {
+                matrix[start_i, start_j + j] = true;
+                matrix[start_i + size - 1, start_j + j] = true;
+            }
+        }
 
-            Border brd_of_qr = new Border();
-            brd_of_qr.HorizontalAlignment = System.Windows.HorizontalAlignment.Center;
-            brd_of_qr.VerticalAlignment = System.Windows.VerticalAlignment.Top;
-            brd_of_qr.Margin = new System.Windows.Thickness(20);
-            brd_of_qr.Width = 270;
-            brd_of_qr.Height = 270;
-            brd_of_qr.CornerRadius = new System.Windows.CornerRadius(10);
-            brd_of_qr.Background = System.Windows.Media.Brushes.White;
+        public static void Create_rectangle_of_QR(ref bool[,] matrix, int i = 0, int j = 0)
+        {
+            Perimetr(matrix, start_i: i + 1, start_j: j + 1, size: 7);
+            Filler(matrix, start_i: i + 3, start_j: i + 3, size: 3);
 
-            qr.Children.Add(brd_of_qr);
+            Perimetr(matrix, start_i: matrix.GetLength(0) - 8, start_j: j + 1, size: 7);
+            Filler(matrix, start_i: matrix.GetLength(0) - 6, start_j: j + 3, size: 3);
+
+            Perimetr(matrix, start_i: i + 1, start_j: matrix.GetLength(1) - 8, size: 7);
+            Filler(matrix, start_i: i + 3, start_j: matrix.GetLength(0) - 6, size: 3);
+        }
+
+        async public void Qr_code_out(bool[,] matrix)
+        {
+            Border brd_of_qr = new Border
+            {
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = System.Windows.VerticalAlignment.Top,
+                Margin = new System.Windows.Thickness(20),
+                Width = 270,
+                Height = 270,
+                CornerRadius = new System.Windows.CornerRadius(10),
+                Background = System.Windows.Media.Brushes.White
+            };
+
             int rnd_num = 3;
+            qr.Children.Add(brd_of_qr);
 
             for (int i = 1; i < matrix.GetLength(0) - 1; i++)
             {
                 for (int j = 1; j < matrix.GetLength(1) - 1; j++)
                 {
-                    await Task.Delay(10);
+                    await Task.Delay(1);
                     if (matrix[i, j])
                     {
                         (int, int, int, int) tuple_rnd = (rnd_num, rnd_num, rnd_num, rnd_num);
@@ -171,53 +169,65 @@ namespace my_app_1
             }
         }
 
+        public void Qr_Code_Compiler(IWebDriver driver)
+        {
+            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+
+            IWebElement g = wait.Until(e => e.FindElement(By.CssSelector("g[transform*='translate(0,0)']")));
+            var inside_g = g.FindElements(By.TagName("g"));
+            bool[,] matrix = new bool[27, 27];
+            Create_rectangle_of_QR(ref matrix);
+            string url = driver.Url.ToString();
+
+            for (int i = 0; i < inside_g.Count; i++)
+            {
+                if (inside_g[i].FindElement(By.TagName("use")).GetAttribute("xlink:href") != "#n_rb-0")
+                {
+                    List<int> dbl_lst = Transform_parse(inside_g[i].GetAttribute("transform"));
+
+                    int x = dbl_lst[0] + 1;
+                    int y = dbl_lst[1] + 1;
+
+                    matrix[x, y] = true;
+                }
+            }
+
+            Qr_code_out(matrix);
+        }
+
         async public void Method(IWebDriver driver)
         {
+
+            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
             int max_len_of_dialogs = 10;
             await Task.Delay(50);
             try
             {
                 driver.Navigate().GoToUrl("https://vk.com/im");
-                WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-
-                await Task.Delay(50);
-                win.Visibility = System.Windows.Visibility.Visible;
                 string current_url = driver.Url.ToString();
+
+                win.Visibility = System.Windows.Visibility.Visible;
+                qr.Visibility = System.Windows.Visibility.Visible;
+
                 var el = driver.FindElement(By.CssSelector("button[class*='FlatButton FlatButton--accent-outline FlatButton--size-l FlatButton--wide VkIdForm__button VkIdForm__signInQRButton']"));
 
                 if (el != null)
                 {
                     el.Click();
 
-                    qr.Visibility = System.Windows.Visibility.Visible;
+                    Qr_Code_Compiler(driver);
 
-                    IWebElement g = wait.Until(e => e.FindElement(By.CssSelector("g[transform*='translate(0,0)']")));
-                    var inside_g = g.FindElements(By.TagName("g"));
-                    bool[,] matrix_g = Qr_Rectangles();
-                    string url = driver.Url.ToString();
-                    for (int i = 0; i < inside_g.Count; i++)
-                    {
-                        if (inside_g[i].FindElement(By.TagName("use")).GetAttribute("xlink:href") != "#n_rb-0")
-                        {
-                            List<double> dbl_lst = Transform_parse(inside_g[i].GetAttribute("transform"));
-
-                            int x = Convert.ToInt32(dbl_lst[0] / 97);
-                            int y = Convert.ToInt32(dbl_lst[1] / 97);
-
-                            matrix_g[x, y] = true;
-                        }
-                    }
-
-                    Qr_code_out(matrix_g);
-
-                    while (driver.Url.ToString() == url)
+                    current_url = driver.Url.ToString();
+                    while (driver.Url.ToString() == current_url)
                     {
                         await Task.Delay(10);
                     }
+
                     qr.Visibility = System.Windows.Visibility.Hidden;
                     win.UpdateLayout();
                     Thread.Sleep(100);
                 }
+
 
                 while (true)
                 {
@@ -249,7 +259,14 @@ namespace my_app_1
                 await Task.Delay(10000);
                 driver.Quit();
                 this.Close();
-                throw new Exception();
+
+                System.Diagnostics.Process process = new System.Diagnostics.Process();
+                System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo();
+                startInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden;
+                startInfo.FileName = "cmd.exe";
+                startInfo.Arguments = "taskkill /IM \"chromedriver.exe\" /f";
+                process.StartInfo = startInfo;
+                process.Start();
             }
         }
 
@@ -261,7 +278,7 @@ namespace my_app_1
             if (e.RightButton == MouseButtonState.Pressed)
             {
                 this.Close();
-                throw new Exception();
+                throw new Exception("хуяк");
             }
         }
     }
