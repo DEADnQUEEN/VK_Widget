@@ -281,5 +281,7 @@ namespace my_app_1
                 throw new Exception("хуяк");
             }
         }
+
+        /// бан по причине пидорас
     }
 }
