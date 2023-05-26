@@ -1,285 +1,332 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using AngleSharp.Dom;
+using System.Windows.Media;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
+using OpenCvLogicWarp;
+using System.Windows.Media.Imaging;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace my_app_1
 {
-    /// <summary>
-    /// Логика взаимодействия для MainWindow.xaml
-    /// </summary>
-
     public partial class MainWindow : Window
     {
-        public IWebDriver Driver_gen()
+        private readonly Warper WRP = new Warper();
+        private List<Button> Buttons;
+        public double TranceparentOpacity = 0.6;
+        private readonly double Step = 0.03;
+        private IWebDriver Driver { get; set; } = null;
+        private ChromeOptions ChromeOptions { get; set; } = new ChromeOptions();
+        private ChromeDriverService ChromeDriverService { get; set; } = ChromeDriverService.CreateDefaultService();
+        private readonly VKStruct VK = new VKStruct();
+        private readonly List<Grid> Grids = new List<Grid>();
+        private List<string> Dialogs = new List<string>();
+        public void DriverSettingsSetter()
         {
-
-            ChromeOptions options = new ChromeOptions();
-            var chrome_service = ChromeDriverService.CreateDefaultService();
-            chrome_service.HideCommandPromptWindow = true;
-            IWebDriver driver = new ChromeDriver(options: options, service: chrome_service);
-
-            return driver;
+            ChromeDriverService.HideCommandPromptWindow = true;
+            ChromeOptions.AddArgument("--headless");
+            Driver = new ChromeDriver(options: ChromeOptions, service: ChromeDriverService);
         }
-
-        public MainWindow()
+        public void CloseApp()
         {
-            IWebDriver driver = Driver_gen();
+            Driver.Quit();
+            Close();
 
-            Method(driver);
-            InitializeComponent();
+            foreach (var proc in System.Diagnostics.Process.GetProcessesByName("chromedriver"))
+                proc.Kill();
+            foreach (var proc in System.Diagnostics.Process.GetProcessesByName("chrome"))
+                proc.Kill();
         }
-
-        public string Find_name_of_dialog(IWebElement element)
+        public void CloseApp(Exception ex)
         {
-            string out_txt = "";
-
-            element = element.FindElement(By.CssSelector("div[class*='nim-dialog--content']"));
-            element = element.FindElement(By.CssSelector("div[class*='nim-dialog--cw']"));
-            element = element.FindElement(By.CssSelector("div[class*='_im_dialog_title']"));
-            element = element.FindElement(By.CssSelector("div[class*='nim-dialog--name']"));
-            element = element.FindElement(By.TagName("span"));
-            element = element.FindElement(By.CssSelector("span[class*='_im_dialog_link']"));
-
-            out_txt += element.Text;
-
-            return out_txt;
-        }
-
-        public void Add_border(int i, int j, (int, int, int, int) rounder)
-        {
-            Border new_border = new Border
+            Label Lb1 = new Label()
             {
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                VerticalAlignment = System.Windows.VerticalAlignment.Top,
-                Width = 10,
-                Height = 10,
-                Margin = new System.Windows.Thickness(i * 10 + 30, j * 10 + 30, 0, 0),
-                CornerRadius = new System.Windows.CornerRadius(rounder.Item1, rounder.Item2, rounder.Item3, rounder.Item4),
-                Background = System.Windows.Media.Brushes.Black
+                Content = ex.ToString(),
+                Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                FontSize = 16,
             };
 
-            qr.Children.Add(new_border);
+            MainView.Children.Clear();
+            Grid.SetColumn(Lb1 , 1);
+            Grid.SetRow(Lb1 , 1);
+            MainView.Children.Add(Lb1);
         }
-
-        public static List<int> Transform_parse(string input_str)
+        private void Cleaner(Grid grid, int colomnDefinitions, int rowDefinitions)
         {
-            List<int> doubles = new List<int>();
-            string current = "";
-            for (int i = 1; i < input_str.Length; i++)
+            Cleaner(grid);
+            int min = Math.Min(rowDefinitions, colomnDefinitions);
+            for (int i = 0; i < min; i++)
             {
-                if (char.IsLetter(input_str[i]) == false && char.IsDigit(input_str[i]))
-                    current += input_str[i];
-                else if (char.IsDigit(input_str[i - 1]))
+                grid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+                grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            }
+            for (int i = 0; i < (colomnDefinitions - min); i++) grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            for (int i = 0; i < (rowDefinitions - min); i++) grid.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
+        }
+        private void Cleaner(Grid grid)
+        {
+            grid.Children.Clear();
+            grid.ColumnDefinitions.Clear();
+            grid.RowDefinitions.Clear();
+        }
+        private void VkUIset()
+        {
+            Cleaner(MainView, 2, 1);
+
+            Button adder = new Button()
+            {
+                Width = 30,
+                Height = 30,
+                Style = (Style)win.Resources["Adder"],
+                Content = new Image()
                 {
-                    doubles.Add((Convert.ToInt32(string.Join("", current))));
-                    current = "";
-                }
-            }
-
-            if (current.Length != 0)
-                doubles.Add((Convert.ToInt32(string.Join("", current))) / 97);
-
-            return doubles;
-        }
-
-        public static void Filler(bool[,] matrix, int start_i, int start_j, int size)
-        {
-            for (int i = 0; i < size; i++)
-                for (int j = 0; j < size; j++)
-                    matrix[start_i + i, start_j + j] = true;
-        }
-
-        public static void Perimetr(bool[,] matrix, int start_i, int start_j, int size)
-        {
-            for (int i = 0; i < size; i++)
-            {
-                matrix[start_i + i, start_j] = true;
-                matrix[start_i + i, start_j + size - 1] = true;
-            }
-
-            for (int j = 0; j < size; j++)
-            {
-                matrix[start_i, start_j + j] = true;
-                matrix[start_i + size - 1, start_j + j] = true;
-            }
-        }
-
-        public static void Create_rectangle_of_QR(ref bool[,] matrix, int i = 0, int j = 0)
-        {
-            Perimetr(matrix, start_i: i + 1, start_j: j + 1, size: 7);
-            Filler(matrix, start_i: i + 3, start_j: i + 3, size: 3);
-
-            Perimetr(matrix, start_i: matrix.GetLength(0) - 8, start_j: j + 1, size: 7);
-            Filler(matrix, start_i: matrix.GetLength(0) - 6, start_j: j + 3, size: 3);
-
-            Perimetr(matrix, start_i: i + 1, start_j: matrix.GetLength(1) - 8, size: 7);
-            Filler(matrix, start_i: i + 3, start_j: matrix.GetLength(0) - 6, size: 3);
-        }
-
-        async public void Qr_code_out(bool[,] matrix)
-        {
-            Border brd_of_qr = new Border
-            {
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-                VerticalAlignment = System.Windows.VerticalAlignment.Top,
-                Margin = new System.Windows.Thickness(20),
-                Width = 270,
-                Height = 270,
-                CornerRadius = new System.Windows.CornerRadius(10),
-                Background = System.Windows.Media.Brushes.White
+                    Source = new BitmapImage(new Uri("uiicons/plus_white.png", UriKind.Relative)),
+                },
+                Margin = new Thickness(5),
+                Padding = new Thickness(3),
             };
 
-            int rnd_num = 3;
-            qr.Children.Add(brd_of_qr);
-
-            for (int i = 1; i < matrix.GetLength(0) - 1; i++)
+            ComboBox comboBox = new ComboBox()
             {
-                for (int j = 1; j < matrix.GetLength(1) - 1; j++)
+                Style = (Style)win.Resources["ComboBoxDialogsStyle"],
+                ItemContainerStyle = (Style)win.Resources["itemsStyle"],
+                Width = 250,
+                Height = adder.Height,
+                ItemsSource = VK.Dialogs,
+                MaxDropDownHeight = 400,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(5),
+            };
+
+            Grid.SetColumn(adder, 0);
+            Grid.SetRow(adder, int.MaxValue);
+            MainView.Children.Add(adder);
+            
+            Grid.SetColumn(comboBox, 1);
+            Grid.SetRow(comboBox, int.MaxValue);
+            MainView.Children.Add(comboBox);
+
+            adder.Click += (s, e) =>
+            {
+                if (comboBox.Text == "") return;
+
+                Grid textGrid = new Grid()
                 {
-                    await Task.Delay(1);
-                    if (matrix[i, j])
+                    Name = 'g' + Grids.Count.ToString(),
+                    ColumnDefinitions =
                     {
-                        (int, int, int, int) tuple_rnd = (rnd_num, rnd_num, rnd_num, rnd_num);
+                        new ColumnDefinition() { Width = new GridLength(30), },
+                        new ColumnDefinition() { Width = GridLength.Auto, },
+                        new ColumnDefinition() { Width = GridLength.Auto, }
+                    },
+                    RowDefinitions =
+                    {
+                        new RowDefinition() { Height = new GridLength(adder.Height) },
+                    },
+                    Margin = new Thickness(5),
+                };
+                    
+                Grids.Add(textGrid);
 
-                        if (matrix[i, j - 1] || matrix[i - 1, j])   // Left n Top
-                            tuple_rnd.Item1 = 0;
-
-                        if (matrix[i - 1, j] || matrix[i, j + 1])   // Top n right
-                            tuple_rnd.Item4 = 0;
-
-                        if (matrix[i, j + 1] || matrix[i + 1, j])   // Right n Bottom
-                            tuple_rnd.Item3 = 0;
-
-                        if (matrix[i + 1, j] || matrix[i, j - 1])   //Left n Bottom
-                            tuple_rnd.Item2 = 0;
-
-                        Add_border(i - 1, j - 1, tuple_rnd);
-                    }
-                }
-            }
-        }
-
-        public void Qr_Code_Compiler(IWebDriver driver)
-        {
-            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-
-            IWebElement g = wait.Until(e => e.FindElement(By.CssSelector("g[transform*='translate(0,0)']")));
-            var inside_g = g.FindElements(By.TagName("g"));
-            bool[,] matrix = new bool[27, 27];
-            Create_rectangle_of_QR(ref matrix);
-            string url = driver.Url.ToString();
-
-            for (int i = 0; i < inside_g.Count; i++)
-            {
-                if (inside_g[i].FindElement(By.TagName("use")).GetAttribute("xlink:href") != "#n_rb-0")
+                Button delete = new Button()
                 {
-                    List<int> dbl_lst = Transform_parse(inside_g[i].GetAttribute("transform"));
+                    Name= 'b' + textGrid.Name,
+                    Width = 30,
+                    Height = 30,
+                    Style = (Style)win.Resources["Adder"],
+                    Content = new Image()
+                    {
+                        Source = new BitmapImage(new Uri("uiicons/plus45_white.png", UriKind.Relative)),
+                    },
+                };
 
-                    int x = dbl_lst[0] + 1;
-                    int y = dbl_lst[1] + 1;
+                Label lbl = new Label()
+                {
+                    Name = 'l' + textGrid.Name,
+                    Height = 30,
+                    Content = comboBox.Text,
+                    Width = comboBox.Width - 30,
+                    Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                };
 
-                    matrix[x, y] = true;
-                }
-            }
+                Label brd = new Label()
+                {
+                    Name = 'n' + textGrid.Name,
+                    Height = 30,
+                    Content = VK.Numbers[VK.AllDialogs.IndexOf(comboBox.Text)],
+                    FontSize = 16,
+                    Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(7, 0, 5, 0),
+                };
 
-            Qr_code_out(matrix);
+                delete.Click += async (ob, ev) =>
+                {
+                    int id = int.Parse(delete.Name.Substring(2));
+                    MainView.Children.RemoveAt(id + 2);
+                    Grids.RemoveAt(id);
+                    MainView.RowDefinitions.RemoveAt(MainView.RowDefinitions.Count - 1);
+                    for (int i = id; i < Grids.Count; i++)
+                    {
+                        Grids[i].Name = Grids[i].Name.Substring(0, 1) + id.ToString();
+                        foreach (FrameworkElement child in Grids[i].Children)
+                            child.Name = child.Name.Substring(0, 2) + id.ToString();
+                        Grid.SetRow(Grids[i], i);
+                    }
+                    Dialogs.RemoveAt(id);
+                    VK.Dialogs.Clear();
+                    foreach (string d in VK.AllDialogs)
+                    {
+                        await Task.Delay(5);
+                        if (!Dialogs.Contains(d))
+                        {
+                            VK.Dialogs.Add(d);
+                        }
+                    }
+                };
+
+                Grid.SetColumn(delete, 0);
+                Grid.SetRow(delete, 0);
+                textGrid.Children.Add(delete);
+
+                Grid.SetRow(brd, 0);
+                Grid.SetColumn(brd, 1);
+                textGrid.Children.Add(brd);
+
+                Grid.SetColumn(lbl, textGrid.ColumnDefinitions.Count - 1);
+                Grid.SetRow(lbl, 0);
+                textGrid.Children.Add(lbl);
+                
+                Grid.SetColumn(textGrid, 0);
+                Grid.SetColumnSpan(textGrid, MainView.ColumnDefinitions.Count);
+                Grid.SetRow(textGrid, MainView.RowDefinitions.Count - 1);
+
+                MainView.RowDefinitions.Add(new RowDefinition());
+                MainView.Children.Add(textGrid);
+                Dialogs.Add(comboBox.Text);
+                VK.Dialogs.Remove(comboBox.Text);
+            };
+
+            MainView.ColumnDefinitions[0].Width = new GridLength(adder.Width + adder.Margin.Right + adder.Margin.Left);
+            MainView.ColumnDefinitions[1].Width = new GridLength(comboBox.Width + comboBox.Margin.Left + comboBox.Margin.Right);
+            MainView.RowDefinitions[0].Height = new GridLength(adder.Height + adder.Margin.Top + adder.Margin.Bottom);
         }
-
-        async public void Method(IWebDriver driver)
+        async public void Method()
         {
-
-            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-            int max_len_of_dialogs = 10;
-            await Task.Delay(50);
+            Buttons = new List<Button>() 
+            {
+                pinButton,
+                closeButton,
+                minimizeButton,
+                homeButton,
+            };
             try
             {
-                driver.Navigate().GoToUrl("https://vk.com/im");
-                string current_url = driver.Url.ToString();
-
-                win.Visibility = System.Windows.Visibility.Visible;
-                qr.Visibility = System.Windows.Visibility.Visible;
-
-                var el = driver.FindElement(By.CssSelector("button[class*='FlatButton FlatButton--accent-outline FlatButton--size-l FlatButton--wide VkIdForm__button VkIdForm__signInQRButton']"));
-
-                if (el != null)
-                {
-                    el.Click();
-
-                    Qr_Code_Compiler(driver);
-
-                    current_url = driver.Url.ToString();
-                    while (driver.Url.ToString() == current_url)
-                    {
-                        await Task.Delay(10);
-                    }
-
-                    qr.Visibility = System.Windows.Visibility.Hidden;
-                    win.UpdateLayout();
-                    Thread.Sleep(100);
-                }
-
-
                 while (true)
                 {
-                    while (driver.Url == "https://vk.com/im" || driver.Url == "https://vk.com/al_im.php")
+                    await Task.Delay(1);
+
+                    if (Driver.Url == VK.AfterLogURL)
                     {
-                        string out_txt = "";
-                        List<string> list_of_string = new List<string>();
-                        var dialog_list = driver.FindElements(By.CssSelector("ul[id*='im_dialogs'] li"));
-                        for (int num_of_dialog = 0; num_of_dialog < max_len_of_dialogs && num_of_dialog < dialog_list.Count; num_of_dialog++)
-                        {
-                            list_of_string.Add(Find_name_of_dialog(dialog_list[num_of_dialog]));
-                            await Task.Delay(100);
-                        }
-
-                        out_txt = string.Join("\n", list_of_string);
-
-                        Lb1.Content = out_txt;
-
-                        await Task.Delay(500);
+                        Driver.Navigate().GoToUrl(VK.MessagesURL);
+                        VK.Login = true;
+                        VkUIset();
+                        ReadOnlyCollection<IWebElement> liWebElements = Driver.FindElement(By.CssSelector("#im_dialogs")).FindElements(By.XPath("li"));
+                        VK.DialogNamesSetter(liWebElements);
                     }
-                    await Task.Delay(1000);
+                    while (VK.Login)
+                    {
+                        await Task.Delay(10000);
+                        VK.ValOfDialogsCheck(Driver.FindElement(By.CssSelector("#im_dialogs")).FindElements(By.XPath("li")));
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                for (int i = 0; i < qr.Children.Count; i++)
-                    qr.Children.Clear();
-                Lb1.Content = ex.Message;
-                await Task.Delay(10000);
-                driver.Quit();
-                this.Close();
-
-                System.Diagnostics.Process process = new System.Diagnostics.Process();
-                System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo();
-                startInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden;
-                startInfo.FileName = "cmd.exe";
-                startInfo.Arguments = "taskkill /IM \"chromedriver.exe\" /f";
-                process.StartInfo = startInfo;
-                process.Start();
-            }
+            } catch (Exception ex) { CloseApp(ex); }
         }
+        public MainWindow()
+        {
+            DriverSettingsSetter();
+            InitializeComponent();
 
+        }
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
-                this.DragMove();
+            if (!win.Topmost && e.LeftButton == MouseButtonState.Pressed)
+                DragMove();
+        }
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            CloseApp();
+        }
 
-            if (e.RightButton == MouseButtonState.Pressed)
+        async private void PinButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (win.Topmost)
             {
-                this.Close();
-                throw new Exception("хуяк");
+                win.Topmost = false;
+                PinButtonImg.Source = new BitmapImage(new Uri("uiicons/unlock_white.png", UriKind.Relative));
+                for (double i = TranceparentOpacity; i < 1; i += Step / 5)
+                    foreach (Button button in Buttons)
+                    {
+                        button.Opacity += Step / 5; 
+                        await Task.Delay(1);
+                    }
             }
+            else 
+            {
+                win.Topmost = true;
+                PinButtonImg.Source = new BitmapImage(new Uri("uiicons/lock_white.png", UriKind.Relative));
+                for (double i = 1; i > TranceparentOpacity; i -= Step)
+                    foreach (Button btn in Buttons)
+                    {
+                        btn.Opacity -= Step;
+                        await Task.Delay(1);
+                    }
+            }
+        }
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            win.WindowState = WindowState.Minimized;
+        }
+        async private void VkClick(object sender, RoutedEventArgs e)
+        {
+            if (!VK.Login)
+            {
+                Driver.Navigate().GoToUrl(VK.URLLOG);
+
+                byte[] ss = ((ITakesScreenshot)Driver).GetScreenshot().AsByteArray;
+                OpenCvSharp.Point2f[] pts = WRP.Detect(ss);
+
+                while (pts.Length == 0)
+                {
+                    await Task.Delay(50);
+                    ss = ((ITakesScreenshot)Driver).GetScreenshot().AsByteArray;
+                    await Task.Delay(50);
+                    pts = WRP.Detect(ss);
+                }
+
+                vk.Style = (Style)win.Resources["VKupd"];
+                vk.Padding = new Thickness(10);
+                vk.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#ffffffff"));
+                System.Drawing.Bitmap bit = WRP.QrFounder(ss);
+                bit.MakeTransparent(System.Drawing.Color.White);
+                vk.Content = new Image() { Source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(bit.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions()) };
+                
+                return;
+            }
+        }
+        private void HomeButton_Click(object sender, RoutedEventArgs e)
+        {
+            Cleaner(MainView, 1, 1);
+            vk.Style = (Style)win.Resources["VK"];
+            vk.Content = new Image() { Source = new BitmapImage(new Uri("uiicons/vkLogM.png", UriKind.Relative)), Name = "vkImg" };
+            vk.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#26ffffff"));
+            MainView.Children.Add(vk);
         }
     }
 }
