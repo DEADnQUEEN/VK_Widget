@@ -829,7 +829,7 @@
                 <ColumnDefinition Width="40"></ColumnDefinition>
                 <ColumnDefinition Width="1*" x:Name="MainWorkColomn" MinWidth="20">
                 </ColumnDefinition>
-                <ColumnDefinition Width="40"></ColumnDefinition>
+                <ColumnDefinition Width="1*"></ColumnDefinition>
                 <ColumnDefinition Width="40">
                 </ColumnDefinition>
             </Grid.ColumnDefinitions>

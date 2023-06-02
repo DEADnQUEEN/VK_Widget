@@ -5,7 +5,7 @@ namespace OpenCvLogicWarp
 {
     public class Warper
     {
-        public int Padding { get; set; } = 4;
+        public int Padding { get; set; } = 5;
         private ImreadModes ImreadMode { get; set; } = ImreadModes.AnyColor;
         private Mat QrPointsFounder(Point[] points, byte[] bytes)
         {

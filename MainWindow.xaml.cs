@@ -5,11 +5,14 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
 using OpenCvLogicWarp;
 using System.Windows.Media.Imaging;
 using System.Collections.Generic;
+using Browse;
+using VK;
+using System.Threading;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace my_app_1
 {
@@ -19,21 +22,12 @@ namespace my_app_1
         private List<Button> Buttons;
         public double TranceparentOpacity = 0.6;
         private readonly double Step = 0.03;
-        private IWebDriver Driver { get; set; } = null;
-        private ChromeOptions ChromeOptions { get; set; } = new ChromeOptions();
-        private ChromeDriverService ChromeDriverService { get; set; } = ChromeDriverService.CreateDefaultService();
         private readonly VKStruct VK = new VKStruct();
         private readonly List<Grid> Grids = new List<Grid>();
-        private List<string> Dialogs = new List<string>();
-        public void DriverSettingsSetter()
-        {
-            ChromeDriverService.HideCommandPromptWindow = true;
-            ChromeOptions.AddArgument("--headless");
-            Driver = new ChromeDriver(options: ChromeOptions, service: ChromeDriverService);
-        }
+        private readonly Browser Browser = new Browser();
         public void CloseApp()
         {
-            Driver.Quit();
+            Browser.Driver.Quit();
             Close();
 
             foreach (var proc in System.Diagnostics.Process.GetProcessesByName("chromedriver"))
@@ -73,9 +67,61 @@ namespace my_app_1
             grid.ColumnDefinitions.Clear();
             grid.RowDefinitions.Clear();
         }
+        private async void DialogSetter()
+        {
+            Thread t = new Thread(() =>
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    VK.Dialogs.Clear();
+                    VK.DialogValuesDict.Clear();
+                });
+
+                while (true)
+                {
+                    ReadOnlyCollection<IWebElement> els = Browser.Driver.FindElement(By.CssSelector(VK.DialogsLIKey)).FindElements(By.TagName("li"));
+                    
+                    for (int i = 0; i <  els.Count; i++)
+                    {
+                        string txt = els[i].FindElement(By.CssSelector(VK.DNSet)).Text;
+                        string val = els[i].FindElement(By.CssSelector(VK.ValSet)).Text;
+                        if (!VK.Dialogs.Contains(txt) && !VK.GridDialogs.Contains(txt))
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                VK.Dialogs.Add(txt);
+                                if (!VK.DialogValuesDict.ContainsKey(txt))
+                                    VK.DialogValuesDict.Add(txt, new Label()
+                                    {
+                                        Foreground = new SolidColorBrush(Colors.White),
+                                        Content = val,
+                                        Height = 30,
+                                        MinWidth = 30,
+                                        Margin = new Thickness(5, 0, 5, 0),
+                                        FontSize = 16
+                                    });
+                                else
+                                    VK.DialogValuesDict[txt].Content = val;
+                            });
+                            continue;
+                        }
+                        Dispatcher.Invoke(() => 
+                        {
+                            VK.DialogValuesDict[txt].Content = val;
+                        });
+                    }
+
+                    Thread.Sleep(1000);
+                }
+            });
+            t.Start();
+            while (t.IsAlive) { await Task.Delay(10); }
+        }
         private void VkUIset()
         {
             Cleaner(MainView, 2, 1);
+
+            DialogSetter();
 
             Button adder = new Button()
             {
@@ -102,7 +148,7 @@ namespace my_app_1
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Margin = new Thickness(5),
             };
-
+            
             Grid.SetColumn(adder, 0);
             Grid.SetRow(adder, int.MaxValue);
             MainView.Children.Add(adder);
@@ -135,7 +181,7 @@ namespace my_app_1
 
                 Button delete = new Button()
                 {
-                    Name= 'b' + textGrid.Name,
+                    Name= 'b' + (Grids.Count - 1).ToString(),
                     Width = 30,
                     Height = 30,
                     Style = (Style)win.Resources["Adder"],
@@ -147,57 +193,40 @@ namespace my_app_1
 
                 Label lbl = new Label()
                 {
-                    Name = 'l' + textGrid.Name,
+                    Name = 'l' + (Grids.Count - 1).ToString(),
                     Height = 30,
                     Content = comboBox.Text,
                     Width = comboBox.Width - 30,
                     Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
                 };
 
-                Label brd = new Label()
+                delete.Click += (ob, ev) =>
                 {
-                    Name = 'n' + textGrid.Name,
-                    Height = 30,
-                    Content = VK.Numbers[VK.AllDialogs.IndexOf(comboBox.Text)],
-                    FontSize = 16,
-                    Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(7, 0, 5, 0),
-                };
+                    int id = int.Parse(delete.Name.Substring(1));
 
-                delete.Click += async (ob, ev) =>
-                {
-                    int id = int.Parse(delete.Name.Substring(2));
-                    MainView.Children.RemoveAt(id + 2);
+                    MainView.Children.Remove(Grids[id]);
+
                     Grids.RemoveAt(id);
                     MainView.RowDefinitions.RemoveAt(MainView.RowDefinitions.Count - 1);
                     for (int i = id; i < Grids.Count; i++)
                     {
-                        Grids[i].Name = Grids[i].Name.Substring(0, 1) + id.ToString();
-                        foreach (FrameworkElement child in Grids[i].Children)
-                            child.Name = child.Name.Substring(0, 2) + id.ToString();
+                        foreach (FrameworkElement el in Grids[i].Children)
+                        {
+                            if (el.Name != string.Empty)
+                                el.Name = el.Name[0] + i.ToString();
+                        }
                         Grid.SetRow(Grids[i], i);
                     }
-                    Dialogs.RemoveAt(id);
                     VK.Dialogs.Clear();
-                    foreach (string d in VK.AllDialogs)
-                    {
-                        await Task.Delay(5);
-                        if (!Dialogs.Contains(d))
-                        {
-                            VK.Dialogs.Add(d);
-                        }
-                    }
                 };
 
                 Grid.SetColumn(delete, 0);
                 Grid.SetRow(delete, 0);
                 textGrid.Children.Add(delete);
 
-                Grid.SetRow(brd, 0);
-                Grid.SetColumn(brd, 1);
-                textGrid.Children.Add(brd);
+                Grid.SetRow(VK.DialogValuesDict[comboBox.Text], 0);
+                Grid.SetColumn(VK.DialogValuesDict[comboBox.Text], 1);
+                textGrid.Children.Add(VK.DialogValuesDict[comboBox.Text]);
 
                 Grid.SetColumn(lbl, textGrid.ColumnDefinitions.Count - 1);
                 Grid.SetRow(lbl, 0);
@@ -209,7 +238,7 @@ namespace my_app_1
 
                 MainView.RowDefinitions.Add(new RowDefinition());
                 MainView.Children.Add(textGrid);
-                Dialogs.Add(comboBox.Text);
+                VK.GridDialogs.Add(comboBox.Text);
                 VK.Dialogs.Remove(comboBox.Text);
             };
 
@@ -219,40 +248,38 @@ namespace my_app_1
         }
         async public void Method()
         {
-            Buttons = new List<Button>() 
-            {
-                pinButton,
-                closeButton,
-                minimizeButton,
-                homeButton,
-            };
             try
             {
                 while (true)
                 {
                     await Task.Delay(1);
 
-                    if (Driver.Url == VK.AfterLogURL)
+                    if (Browser.Driver.Url == VK.AfterLogURL)
                     {
-                        Driver.Navigate().GoToUrl(VK.MessagesURL);
+                        Thread t1 = new Thread(() =>
+                        {
+                            Browser.Driver.Navigate().GoToUrl(VK.MessagesURL);
+                        });
+                        t1.Start();
+                        while (t1.IsAlive) { await Task.Delay(10); }
                         VK.Login = true;
+                        
                         VkUIset();
-                        ReadOnlyCollection<IWebElement> liWebElements = Driver.FindElement(By.CssSelector("#im_dialogs")).FindElements(By.XPath("li"));
-                        VK.DialogNamesSetter(liWebElements);
-                    }
-                    while (VK.Login)
-                    {
-                        await Task.Delay(10000);
-                        VK.ValOfDialogsCheck(Driver.FindElement(By.CssSelector("#im_dialogs")).FindElements(By.XPath("li")));
                     }
                 }
             } catch (Exception ex) { CloseApp(ex); }
         }
         public MainWindow()
         {
-            DriverSettingsSetter();
             InitializeComponent();
-
+            Buttons = new List<Button>()
+            {
+                pinButton,
+                closeButton,
+                minimizeButton,
+                homeButton,
+            };
+            Method();
         }
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -297,15 +324,20 @@ namespace my_app_1
         {
             if (!VK.Login)
             {
-                Driver.Navigate().GoToUrl(VK.URLLOG);
-
-                byte[] ss = ((ITakesScreenshot)Driver).GetScreenshot().AsByteArray;
+                Thread t1 = new Thread(() =>  
+                {
+                    Browser.Driver.Navigate().GoToUrl(VK.URLLOG); 
+                });
+                t1.Start();
+                while (t1.IsAlive) { await Task.Delay(100); }
+                
+                byte[] ss = ((ITakesScreenshot)Browser.Driver).GetScreenshot().AsByteArray;
                 OpenCvSharp.Point2f[] pts = WRP.Detect(ss);
 
                 while (pts.Length == 0)
                 {
                     await Task.Delay(50);
-                    ss = ((ITakesScreenshot)Driver).GetScreenshot().AsByteArray;
+                    ss = ((ITakesScreenshot)Browser.Driver).GetScreenshot().AsByteArray;
                     await Task.Delay(50);
                     pts = WRP.Detect(ss);
                 }
