@@ -142,9 +142,9 @@
         <Style x:Key="VKupd" TargetType="{x:Type Button}">
             <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual1}"/>
             <Setter Property="Background" Value="{StaticResource Button.Static.Background1}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Button.Static.Border1}"/>
+            <Setter Property="BorderBrush" Value="White"/>
             <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="5"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="1"/>
@@ -885,7 +885,7 @@
                     VerticalAlignment="Top" Click="HomeButton_Click"
                     Padding="2, 2, 0, 0">
                 <Image x:Name="HomeBTN"
-                       Source="uiicons/apps_white.png" 
+                       Source="uiicons/apps_white.png"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Margin="5"/>
                 <Button.Resources>
@@ -915,8 +915,6 @@
             </Button>
             <Grid Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" x:Name="MainView" Margin="3">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition></ColumnDefinition>
-                    <ColumnDefinition></ColumnDefinition>
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>

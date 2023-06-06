@@ -5,11 +5,11 @@ namespace OpenCvLogicWarp
 {
     public class Warper
     {
-        public int Padding { get; set; } = 5;
+        public int Padding { get; set; } = 6;
         private ImreadModes ImreadMode { get; set; } = ImreadModes.AnyColor;
         private Mat QrPointsFounder(Point[] points, byte[] bytes)
         {
-            if (points.Length > 4) return null;
+            if (points.Length != 4) return null;
             Mat src = Cv2.ImDecode(bytes, ImreadMode);
             int minX = Math.Min(points[0].X, points[3].X);
             int minY = Math.Min(points[0].Y, points[1].Y);

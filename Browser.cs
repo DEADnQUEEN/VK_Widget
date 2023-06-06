@@ -1,27 +1,22 @@
-﻿using System.Collections.ObjectModel;
-using System.Threading;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
+﻿using OpenQA.Selenium;
+using OpenQA.Selenium.Edge;
 
 namespace Browse
 {
     public class Browser
     {
         public IWebDriver Driver { get; set; }
-        private ChromeOptions ChromeOptions { get; set; } = new ChromeOptions();
-        private ChromeDriverService ChromeDriverService { get; set; } = ChromeDriverService.CreateDefaultService();
+        private EdgeOptions EdgeOptions { get; set; } = new EdgeOptions();
+        private EdgeDriverService EdgeDriverService { get; set; } = EdgeDriverService.CreateDefaultService();
         public void DriverSettingsSetter()
         {
-            ChromeDriverService.HideCommandPromptWindow = true;
-            ChromeOptions.AddArgument("--headless");
-            Driver = new ChromeDriver(options: ChromeOptions, service: ChromeDriverService);
-        }
-        public ReadOnlyCollection<IWebElement> UpdateDialogsLI(string liKCssSelectorKey)
-        {
-            return Driver.FindElement(By.CssSelector(liKCssSelectorKey)).FindElements(By.XPath("li"));
+            EdgeOptions.AddArgument("--headless");
+            EdgeOptions.AddArgument("--mute-audio");
+            Driver = new EdgeDriver(options: EdgeOptions, service: EdgeDriverService);
         }
         public Browser()
         {
+            EdgeDriverService.HideCommandPromptWindow = true;
             DriverSettingsSetter();
         }
     }

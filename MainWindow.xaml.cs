@@ -12,42 +12,30 @@ using Browse;
 using VK;
 using System.Threading;
 using System.Collections.ObjectModel;
-using System.Linq;
+using System.Reflection;
+using System.IO;
 
 namespace my_app_1
 {
     public partial class MainWindow : Window
     {
         private readonly Warper WRP = new Warper();
-        private List<Button> Buttons;
-        public double TranceparentOpacity = 0.6;
+        private readonly List<Button> Buttons;
+        private readonly double TranceparentOpacity = 0.6;
         private readonly double Step = 0.03;
+        
         private readonly VKStruct VK = new VKStruct();
+
         private readonly List<Grid> Grids = new List<Grid>();
         private readonly Browser Browser = new Browser();
-        public void CloseApp()
+        private Thread LogThread;
+
+        private void CloseApp()
         {
+            LogThread.Abort();
             Browser.Driver.Quit();
+            Thread.Sleep(10);
             Close();
-
-            foreach (var proc in System.Diagnostics.Process.GetProcessesByName("chromedriver"))
-                proc.Kill();
-            foreach (var proc in System.Diagnostics.Process.GetProcessesByName("chrome"))
-                proc.Kill();
-        }
-        public void CloseApp(Exception ex)
-        {
-            Label Lb1 = new Label()
-            {
-                Content = ex.ToString(),
-                Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
-                FontSize = 16,
-            };
-
-            MainView.Children.Clear();
-            Grid.SetColumn(Lb1 , 1);
-            Grid.SetRow(Lb1 , 1);
-            MainView.Children.Add(Lb1);
         }
         private void Cleaner(Grid grid, int colomnDefinitions, int rowDefinitions)
         {
@@ -67,62 +55,8 @@ namespace my_app_1
             grid.ColumnDefinitions.Clear();
             grid.RowDefinitions.Clear();
         }
-        private async void DialogSetter()
+        private void UISetter(ObservableCollection<string> dialogs, List<string> gridDial, bool clean)
         {
-            Thread t = new Thread(() =>
-            {
-                Dispatcher.Invoke(() => 
-                {
-                    VK.Dialogs.Clear();
-                    VK.DialogValuesDict.Clear();
-                });
-
-                while (true)
-                {
-                    ReadOnlyCollection<IWebElement> els = Browser.Driver.FindElement(By.CssSelector(VK.DialogsLIKey)).FindElements(By.TagName("li"));
-                    
-                    for (int i = 0; i <  els.Count; i++)
-                    {
-                        string txt = els[i].FindElement(By.CssSelector(VK.DNSet)).Text;
-                        string val = els[i].FindElement(By.CssSelector(VK.ValSet)).Text;
-                        if (!VK.Dialogs.Contains(txt) && !VK.GridDialogs.Contains(txt))
-                        {
-                            Dispatcher.Invoke(() =>
-                            {
-                                VK.Dialogs.Add(txt);
-                                if (!VK.DialogValuesDict.ContainsKey(txt))
-                                    VK.DialogValuesDict.Add(txt, new Label()
-                                    {
-                                        Foreground = new SolidColorBrush(Colors.White),
-                                        Content = val,
-                                        Height = 30,
-                                        MinWidth = 30,
-                                        Margin = new Thickness(5, 0, 5, 0),
-                                        FontSize = 16
-                                    });
-                                else
-                                    VK.DialogValuesDict[txt].Content = val;
-                            });
-                            continue;
-                        }
-                        Dispatcher.Invoke(() => 
-                        {
-                            VK.DialogValuesDict[txt].Content = val;
-                        });
-                    }
-
-                    Thread.Sleep(1000);
-                }
-            });
-            t.Start();
-            while (t.IsAlive) { await Task.Delay(10); }
-        }
-        private void VkUIset()
-        {
-            Cleaner(MainView, 2, 1);
-
-            DialogSetter();
-
             Button adder = new Button()
             {
                 Width = 30,
@@ -142,17 +76,17 @@ namespace my_app_1
                 ItemContainerStyle = (Style)win.Resources["itemsStyle"],
                 Width = 250,
                 Height = adder.Height,
-                ItemsSource = VK.Dialogs,
+                ItemsSource = dialogs,
                 MaxDropDownHeight = 400,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Margin = new Thickness(5),
             };
-            
+
             Grid.SetColumn(adder, 0);
             Grid.SetRow(adder, int.MaxValue);
             MainView.Children.Add(adder);
-            
+
             Grid.SetColumn(comboBox, 1);
             Grid.SetRow(comboBox, int.MaxValue);
             MainView.Children.Add(comboBox);
@@ -176,12 +110,12 @@ namespace my_app_1
                     },
                     Margin = new Thickness(5),
                 };
-                    
+
                 Grids.Add(textGrid);
 
                 Button delete = new Button()
                 {
-                    Name= 'b' + (Grids.Count - 1).ToString(),
+                    Name = 'b' + (Grids.Count - 1).ToString(),
                     Width = 30,
                     Height = 30,
                     Style = (Style)win.Resources["Adder"],
@@ -205,9 +139,13 @@ namespace my_app_1
                     int id = int.Parse(delete.Name.Substring(1));
 
                     MainView.Children.Remove(Grids[id]);
+                    gridDial.Remove((string)((Label)Grids[id].Children[2]).Content);
+
+                    Grids[id].Children.Clear();
 
                     Grids.RemoveAt(id);
                     MainView.RowDefinitions.RemoveAt(MainView.RowDefinitions.Count - 1);
+
                     for (int i = id; i < Grids.Count; i++)
                     {
                         foreach (FrameworkElement el in Grids[i].Children)
@@ -217,7 +155,7 @@ namespace my_app_1
                         }
                         Grid.SetRow(Grids[i], i);
                     }
-                    VK.Dialogs.Clear();
+                    clean = true;
                 };
 
                 Grid.SetColumn(delete, 0);
@@ -231,66 +169,58 @@ namespace my_app_1
                 Grid.SetColumn(lbl, textGrid.ColumnDefinitions.Count - 1);
                 Grid.SetRow(lbl, 0);
                 textGrid.Children.Add(lbl);
-                
+
                 Grid.SetColumn(textGrid, 0);
                 Grid.SetColumnSpan(textGrid, MainView.ColumnDefinitions.Count);
                 Grid.SetRow(textGrid, MainView.RowDefinitions.Count - 1);
 
                 MainView.RowDefinitions.Add(new RowDefinition());
                 MainView.Children.Add(textGrid);
-                VK.GridDialogs.Add(comboBox.Text);
-                VK.Dialogs.Remove(comboBox.Text);
+                gridDial.Add(comboBox.Text);
+                dialogs.Remove(comboBox.Text);
             };
 
             MainView.ColumnDefinitions[0].Width = new GridLength(adder.Width + adder.Margin.Right + adder.Margin.Left);
             MainView.ColumnDefinitions[1].Width = new GridLength(comboBox.Width + comboBox.Margin.Left + comboBox.Margin.Right);
             MainView.RowDefinitions[0].Height = new GridLength(adder.Height + adder.Margin.Top + adder.Margin.Bottom);
         }
-        async public void Method()
+        private void VkUIset()
         {
-            try
-            {
-                while (true)
-                {
-                    await Task.Delay(1);
+            Cleaner(MainView, 2, 1);
 
-                    if (Browser.Driver.Url == VK.AfterLogURL)
-                    {
-                        Thread t1 = new Thread(() =>
-                        {
-                            Browser.Driver.Navigate().GoToUrl(VK.MessagesURL);
-                        });
-                        t1.Start();
-                        while (t1.IsAlive) { await Task.Delay(10); }
-                        VK.Login = true;
-                        
-                        VkUIset();
-                    }
-                }
-            } catch (Exception ex) { CloseApp(ex); }
+            VK.DialogValsSetter(Dispatcher, Browser.Driver);
+            UISetter(VK.Dialogs, VK.GridDialogs, VK.Cleaner);
         }
         public MainWindow()
         {
-            InitializeComponent();
-            Buttons = new List<Button>()
+            try
             {
-                pinButton,
-                closeButton,
-                minimizeButton,
-                homeButton,
-            };
-            Method();
+                InitializeComponent();
+                Buttons = new List<Button>()
+                {
+                    pinButton,
+                    closeButton,
+                    minimizeButton,
+                    homeButton,
+                };
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+            }
         }
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (!win.Topmost && e.LeftButton == MouseButtonState.Pressed)
+            {
                 DragMove();
+            }
         }
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
+            VK.Login = false;
             CloseApp();
         }
-
         async private void PinButton_Click(object sender, RoutedEventArgs e)
         {
             if (win.Topmost)
@@ -322,39 +252,69 @@ namespace my_app_1
         }
         async private void VkClick(object sender, RoutedEventArgs e)
         {
+            Thread t1 = new Thread(() =>
+            {
+                Browser.Driver.Navigate().GoToUrl(VK.URLLOG);
+            });
+            t1.Start();
+            while (t1.IsAlive) { await Task.Delay(100); }
+
             if (!VK.Login)
             {
-                Thread t1 = new Thread(() =>  
-                {
-                    Browser.Driver.Navigate().GoToUrl(VK.URLLOG); 
-                });
-                t1.Start();
-                while (t1.IsAlive) { await Task.Delay(100); }
-                
                 byte[] ss = ((ITakesScreenshot)Browser.Driver).GetScreenshot().AsByteArray;
-                OpenCvSharp.Point2f[] pts = WRP.Detect(ss);
 
-                while (pts.Length == 0)
+                Thread t2 = new Thread(() =>
                 {
-                    await Task.Delay(50);
-                    ss = ((ITakesScreenshot)Browser.Driver).GetScreenshot().AsByteArray;
-                    await Task.Delay(50);
-                    pts = WRP.Detect(ss);
-                }
+                    while (WRP.Detect(ss).Length == 0)
+                    {
+                        ss = ((ITakesScreenshot)Browser.Driver).GetScreenshot().AsByteArray;
+                    }
+                });
+                t2.Start();
+                while (t2.IsAlive) { await Task.Delay(100); }
 
-                vk.Style = (Style)win.Resources["VKupd"];
                 vk.Padding = new Thickness(10);
                 vk.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#ffffffff"));
                 System.Drawing.Bitmap bit = WRP.QrFounder(ss);
                 bit.MakeTransparent(System.Drawing.Color.White);
+                vk.Style = (Style)win.Resources["VKupd"];
                 vk.Content = new Image() { Source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(bit.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions()) };
-                
-                return;
+
+                LogThread = new Thread(() =>
+                {
+                    while (WRP.Detect(ss).Length == 4)
+                    {
+                        WRP.QrFounder(((ITakesScreenshot)Browser.Driver).GetScreenshot().AsByteArray);
+                        bit.MakeTransparent(System.Drawing.Color.White);
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            vk.Content = new Image()
+                            {
+                                Source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(bit.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions())
+                            };
+                        });
+
+                        Thread.Sleep(100);
+                    }
+                })
+                { 
+                    IsBackground = true
+                };
+                LogThread.Start();
+                while (LogThread.IsAlive) { await Task.Delay(100); }
+                LogThread.Abort();
             }
+            VkUIset();
+            VK.Login = true;
+
+            return;
         }
         private void HomeButton_Click(object sender, RoutedEventArgs e)
         {
-            Cleaner(MainView, 1, 1);
+            Cleaner(MainView, 3, 1);
+
+            VK.Login = false;
             vk.Style = (Style)win.Resources["VK"];
             vk.Content = new Image() { Source = new BitmapImage(new Uri("uiicons/vkLogM.png", UriKind.Relative)), Name = "vkImg" };
             vk.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#26ffffff"));
